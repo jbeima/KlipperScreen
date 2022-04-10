@@ -54,8 +54,8 @@ class TemperaturePanel(ScreenPanel):
     def create_right_panel(self):
         _ = self.lang.gettext
 
-        cooldown = self._gtk.ButtonImage('cool-down', _('Cooldown'), "color4", 1, 1, Gtk.PositionType.LEFT, False)
-        adjust = self._gtk.ButtonImage('fine-tune', '', "color3", 1, 1, Gtk.PositionType.LEFT, False)
+        cooldown = self._gtk.ButtonImage('cool-down', _('Cooldown'), "color4", 1, Gtk.PositionType.LEFT, False)
+        adjust = self._gtk.ButtonImage('fine-tune', '', "color3", 1, Gtk.PositionType.LEFT, False)
 
         right = self._gtk.HomogeneousGrid()
         right.attach(cooldown, 0, 0, 2, 1)
@@ -297,12 +297,12 @@ class TemperaturePanel(ScreenPanel):
             class_name = "graph_label_heater_bed"
             type = "bed"
         elif device.startswith("heater_generic"):
-            h = 1
+            self.h = 1
             for d in self.devices:
                 if "heater_generic" in d:
-                    h += 1
-            image = "heat-up"
-            class_name = "graph_label_sensor_%s" % h
+                    self.h += 1
+            image = "heater"
+            class_name = "graph_label_sensor_%s" % self.h
             type = "sensor"
         elif device.startswith("temperature_fan"):
             f = 1
@@ -317,7 +317,7 @@ class TemperaturePanel(ScreenPanel):
         else:
             s = 1
             try:
-                s += h
+                s += self.h
             except Exception:
                 pass
             for d in self.devices:
@@ -336,7 +336,7 @@ class TemperaturePanel(ScreenPanel):
 
         text = "<span underline='double' underline_color='#%s'>%s</span>" % (color, devname.capitalize())
         name = self._gtk.ButtonImage(image, devname.capitalize().replace("_", " "),
-                                     None, .5, .5, Gtk.PositionType.LEFT, False)
+                                     None, .5, Gtk.PositionType.LEFT, False)
         name.connect('clicked', self.on_popover_clicked, device)
         name.set_alignment(0, .5)
         name.get_style_context().add_class(class_name)

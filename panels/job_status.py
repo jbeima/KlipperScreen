@@ -18,6 +18,7 @@ class JobStatusPanel(ScreenPanel):
     file_metadata = {}
     progress = 0
     state = "standby"
+    zoffset = 0
 
     def __init__(self, screen, title, back=False):
         super().__init__(screen, title, False)
@@ -86,7 +87,7 @@ class JobStatusPanel(ScreenPanel):
         overlay.add(self.labels['darea'])
         overlay.add_overlay(box)
 
-        self.labels['thumbnail'] = self._gtk.Image("file.svg", False, 1.6, 1.6)
+        self.labels['thumbnail'] = self._gtk.Image("file", 2)
 
         i = 0
         for extruder in self._printer.get_tools():
@@ -94,7 +95,7 @@ class JobStatusPanel(ScreenPanel):
             self.labels[extruder] = Gtk.Label(label="")
             self.labels[extruder].get_style_context().add_class("printing-info")
             if i <= 4:
-                ext_img = self._gtk.Image("extruder-%s.svg" % i, None, .6, .6)
+                ext_img = self._gtk.Image("extruder-%s" % i, .6)
                 self.labels[extruder + '_box'].add(ext_img)
             self.labels[extruder + '_box'].add(self.labels[extruder])
             i += 1
@@ -103,7 +104,7 @@ class JobStatusPanel(ScreenPanel):
         self.current_extruder = self._printer.get_stat("toolhead", "extruder")
         temp_grid.attach(self.labels[self.current_extruder + '_box'], 0, 0, 1, 1)
         if self._printer.has_heated_bed():
-            heater_bed = self._gtk.Image("bed.svg", None, .6, .6)
+            heater_bed = self._gtk.Image("bed", .6)
             self.labels['heater_bed'] = Gtk.Label(label="")
             self.labels['heater_bed'].get_style_context().add_class("printing-info")
             heater_bed_box = Gtk.Box(spacing=0)
@@ -113,7 +114,7 @@ class JobStatusPanel(ScreenPanel):
         self.labels['temp_grid'] = temp_grid
 
         # Create time remaining items
-        hourglass = self._gtk.Image("hourglass.svg", None, .6, .6)
+        hourglass = self._gtk.Image("hourglass", .6)
         self.labels['left'] = Gtk.Label(label=_("Left:"))
         self.labels['left'].get_style_context().add_class("printing-info")
         self.labels['time_left'] = Gtk.Label(label="0s")
@@ -125,7 +126,7 @@ class JobStatusPanel(ScreenPanel):
         self.labels['itl_box'] = itl_box
 
         # Create overall items
-        clock = self._gtk.Image("clock.svg", None, .6, .6)
+        clock = self._gtk.Image("clock", .6)
         self.labels['elapsed'] = Gtk.Label(label=_("Elapsed:"))
         self.labels['elapsed'].get_style_context().add_class("printing-info")
         self.labels['duration'] = Gtk.Label(label="0s")
@@ -146,7 +147,7 @@ class JobStatusPanel(ScreenPanel):
         timegrid.attach(it2_box, 1, 1, 1, 1)
         self.labels['timegrid'] = timegrid
 
-        position = self._gtk.Image("move.svg", None, .6, .6)
+        position = self._gtk.Image("move", .6)
         self.labels['pos_x'] = Gtk.Label(label="X: 0")
         self.labels['pos_x'].get_style_context().add_class("printing-info")
         self.labels['pos_y'] = Gtk.Label(label="Y: 0")
@@ -163,19 +164,19 @@ class JobStatusPanel(ScreenPanel):
         pos_box.add(posgrid)
         self.labels['pos_box'] = pos_box
 
-        speed = self._gtk.Image("speed+.svg", None, .6, .6)
+        speed = self._gtk.Image("speed+", .6)
         self.labels['speed'] = Gtk.Label(label="")
         self.labels['speed'].get_style_context().add_class("printing-info")
         speed_box = Gtk.Box(spacing=0)
         speed_box.add(speed)
         speed_box.add(self.labels['speed'])
-        extrusion = self._gtk.Image("extrude.svg", None, .6, .6)
+        extrusion = self._gtk.Image("extrude", .6)
         self.labels['extrusion'] = Gtk.Label(label="")
         self.labels['extrusion'].get_style_context().add_class("printing-info")
         extrusion_box = Gtk.Box(spacing=0)
         extrusion_box.add(extrusion)
         extrusion_box.add(self.labels['extrusion'])
-        fan = self._gtk.Image("fan.svg", None, .6, .6)
+        fan = self._gtk.Image("fan", .6)
         self.labels['fan'] = Gtk.Label(label="")
         self.labels['fan'].get_style_context().add_class("printing-info")
         fan_box = Gtk.Box(spacing=0)
@@ -269,6 +270,18 @@ class JobStatusPanel(ScreenPanel):
         self.labels['restart'].connect("clicked", self.restart)
         self.labels['resume'] = self._gtk.ButtonImage("resume", _("Resume"), "color1")
         self.labels['resume'].connect("clicked", self.resume)
+        self.labels['save_offset_probe'] = self._gtk.ButtonImage("home-z", _("Save Z") + "\n" + "Probe", "color1")
+        self.labels['save_offset_probe'].connect("clicked", self.save_offset_probe)
+        self.labels['save_offset_endstop'] = self._gtk.ButtonImage("home-z", _("Save Z") + "\n" + "Endstop", "color2")
+        self.labels['save_offset_endstop'].connect("clicked", self.save_offset_endstop)
+
+    def save_offset_probe(self, widget):
+        self._screen._ws.klippy.gcode_script("Z_OFFSET_APPLY_PROBE")
+        self._screen._ws.klippy.gcode_script("SAVE_CONFIG")
+
+    def save_offset_endstop(self, widget):
+        self._screen._ws.klippy.gcode_script("Z_OFFSET_APPLY_ENDSTOP")
+        self._screen._ws.klippy.gcode_script("SAVE_CONFIG")
 
     def restart(self, widget):
         if self.filename != "none":
@@ -390,18 +403,19 @@ class JobStatusPanel(ScreenPanel):
                     self.labels['temp_grid'].attach(self.labels[self.current_extruder + '_box'], 0, 0, 1, 1)
                     self._screen.show_all()
 
-        if "gcode_move" in data and "gcode_position" in data["gcode_move"]:
-            self.labels['pos_x'].set_text("X: %.2f" % (data["gcode_move"]["gcode_position"][0]))
-            self.labels['pos_y'].set_text("Y: %.2f" % (data["gcode_move"]["gcode_position"][1]))
-            self.labels['pos_z'].set_text("Z: %.2f" % (data["gcode_move"]["gcode_position"][2]))
-
         if "gcode_move" in data:
+            if "gcode_position" in data["gcode_move"]:
+                self.labels['pos_x'].set_text("X: %.2f" % (data["gcode_move"]["gcode_position"][0]))
+                self.labels['pos_y'].set_text("Y: %.2f" % (data["gcode_move"]["gcode_position"][1]))
+                self.labels['pos_z'].set_text("Z: %.2f" % (data["gcode_move"]["gcode_position"][2]))
             if "extrude_factor" in data["gcode_move"]:
                 self.extrusion = int(round(data["gcode_move"]["extrude_factor"]*100))
                 self.labels['extrusion'].set_text("%3d%%" % self.extrusion)
             if "speed_factor" in data["gcode_move"]:
                 self.speed = int(round(data["gcode_move"]["speed_factor"]*100))
                 self.labels['speed'].set_text("%3d%%" % self.speed)
+            if "homing_origin" in data["gcode_move"]:
+                self.zoffset = data["gcode_move"]["homing_origin"][2]
 
         if "fan" in data and "speed" in data['fan']:
             self.fan = int(round(self._printer.get_fan_speed("fan", data['fan']['speed']), 2)*100)
@@ -552,8 +566,19 @@ class JobStatusPanel(ScreenPanel):
             self.labels['button_grid'].attach(self.labels['control'], 3, 0, 1, 1)
             self.enable_button("resume", "cancel")
         else:
-            self.labels['button_grid'].attach(Gtk.Label(""), 0, 0, 1, 1)
-            self.labels['button_grid'].attach(Gtk.Label(""), 1, 0, 1, 1)
+            if self.zoffset != 0:
+                if not self._screen.printer.get_config_section("stepper_z")['endstop_pin'].startswith("probe"):
+                    self.labels['button_grid'].attach(self.labels["save_offset_endstop"], 0, 0, 1, 1)
+                else:
+                    self.labels['button_grid'].attach(Gtk.Label(""), 0, 0, 1, 1)
+                if (self._printer.config_section_exists("probe") or self._printer.config_section_exists("bltouch")):
+                    self.labels['button_grid'].attach(self.labels["save_offset_probe"], 1, 0, 1, 1)
+                else:
+                    self.labels['button_grid'].attach(Gtk.Label(""), 1, 0, 1, 1)
+            else:
+                self.labels['button_grid'].attach(Gtk.Label(""), 0, 0, 1, 1)
+                self.labels['button_grid'].attach(Gtk.Label(""), 1, 0, 1, 1)
+
             self.labels['button_grid'].attach(self.labels['restart'], 2, 0, 1, 1)
             self.labels['button_grid'].attach(self.labels['menu'], 3, 0, 1, 1)
         self.show_all()
